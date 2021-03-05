@@ -180,6 +180,13 @@ Unreleased
     seconds. :issue:`1648`
 -   Progress bar ``item_show_func`` shows the current item, not the
     previous item. :issue:`1353`
+-   The ``Path`` param type can be passed ``path_type=pathlib.Path`` to
+    return a path object instead of a string. :issue:`405`
+-   ``TypeError`` is raised when parameter with ``multiple=True`` or
+    ``nargs > 1`` has non-iterable default. :issue:`1749`
+-   Add a ``pass_meta_key`` decorator for passing a key from
+    ``Context.meta``. This is useful for extensions using ``meta`` to
+    store information. :issue:`1739`
 
 
 Version 7.1.2
