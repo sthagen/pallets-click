@@ -30,6 +30,7 @@ from .types import BOOL
 from .types import convert_type
 from .types import IntRange
 from .utils import _detect_program_name
+from .utils import _expand_args
 from .utils import echo
 from .utils import make_default_short_help
 from .utils import make_str
@@ -39,14 +40,6 @@ _missing = object()
 
 SUBCOMMAND_METAVAR = "COMMAND [ARGS]..."
 SUBCOMMANDS_METAVAR = "COMMAND1 [ARGS]... [COMMAND2 [ARGS]...]..."
-
-DEPRECATED_HELP_NOTICE = " (DEPRECATED)"
-DEPRECATED_INVOKE_NOTICE = "DeprecationWarning: The command {name} is deprecated."
-
-
-def _maybe_show_deprecated_notice(cmd):
-    if cmd.deprecated:
-        echo(style(DEPRECATED_INVOKE_NOTICE.format(name=cmd.name), fg="red"), err=True)
 
 
 def _fast_exit(code):
@@ -911,9 +904,6 @@ class BaseCommand:
         This method is also available by directly calling the instance of
         a :class:`Command`.
 
-        .. versionadded:: 3.0
-           Added the `standalone_mode` flag to control the standalone mode.
-
         :param args: the arguments that should be used for parsing.  If not
                      provided, ``sys.argv[1:]`` is used.
         :param prog_name: the program name that should be used.  By default
@@ -934,6 +924,13 @@ class BaseCommand:
                                 of :meth:`invoke`.
         :param extra: extra keyword arguments are forwarded to the context
                       constructor.  See :class:`Context` for more information.
+
+        .. versionchanged:: 8.0
+            When taking arguments from ``sys.argv`` on Windows, glob
+            patterns, user dir, and env vars are expanded.
+
+        .. versionchanged:: 3.0
+           Added the ``standalone_mode`` parameter.
         """
         # Verify that the environment is configured correctly, or reject
         # further execution to avoid a broken script.
@@ -941,6 +938,9 @@ class BaseCommand:
 
         if args is None:
             args = sys.argv[1:]
+
+            if os.name == "nt":
+                args = _expand_args(args)
         else:
             args = list(args)
 
@@ -1193,12 +1193,15 @@ class Command(BaseCommand):
         """Gets short help for the command or makes it by shortening the
         long help string.
         """
-        return (
-            self.short_help
-            or self.help
-            and make_default_short_help(self.help, limit)
-            or ""
-        )
+        text = self.short_help or ""
+
+        if not text and self.help:
+            text = make_default_short_help(self.help, limit)
+
+        if self.deprecated:
+            text = f"(Deprecated) {text}"
+
+        return text.strip()
 
     def format_help(self, ctx, formatter):
         """Writes the help into the formatter if it exists.
@@ -1219,17 +1222,16 @@ class Command(BaseCommand):
 
     def format_help_text(self, ctx, formatter):
         """Writes the help text to the formatter if it exists."""
-        if self.help:
+        text = self.help or ""
+
+        if self.deprecated:
+            text = f"(Deprecated) {text}"
+
+        if text:
             formatter.write_paragraph()
+
             with formatter.indentation():
-                help_text = self.help
-                if self.deprecated:
-                    help_text += DEPRECATED_HELP_NOTICE
-                formatter.write_text(help_text)
-        elif self.deprecated:
-            formatter.write_paragraph()
-            with formatter.indentation():
-                formatter.write_text(DEPRECATED_HELP_NOTICE)
+                formatter.write_text(text)
 
     def format_options(self, ctx, formatter):
         """Writes all the options into the formatter if they exist."""
@@ -1275,7 +1277,15 @@ class Command(BaseCommand):
         """Given a context, this invokes the attached callback (if it exists)
         in the right way.
         """
-        _maybe_show_deprecated_notice(self)
+        if self.deprecated:
+            echo(
+                style(
+                    f"DeprecationWarning: The command {self.name!r} is deprecated.",
+                    fg="red",
+                ),
+                err=True,
+            )
+
         if self.callback is not None:
             return ctx.invoke(self.callback, **ctx.params)
 
