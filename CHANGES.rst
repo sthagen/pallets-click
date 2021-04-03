@@ -149,6 +149,8 @@ Unreleased
     passed in as a default value.
     :issue:`549, 736, 764, 921, 1015, 1618`
 -   Fix formatting when ``Command.options_metavar`` is empty. :pr:`1551`
+-   Revert adding space between option help text that wraps.
+    :issue:`1831`
 -   The default value passed to ``prompt`` will be cast to the correct
     type like an input value would be. :pr:`1517`
 -   Automatically generated short help messages will stop at the first
@@ -172,7 +174,8 @@ Unreleased
     addition to its type. :issue:`457`
 -   ``confirmation_prompt`` can be set to a custom string. :issue:`723`
 -   Allow styled output in Jupyter on Windows. :issue:`1271`
--   ``style()`` supports the ``strikethrough`` style. :issue:`805`
+-   ``style()`` supports the ``strikethrough``, ``italic``, and
+    ``overline`` styles. :issue:`805, 1821`
 -   Multiline marker is removed from short help text. :issue:`1597`
 -   Restore progress bar behavior of echoing only the label if the file
     is not a TTY. :issue:`1138`
