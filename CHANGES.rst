@@ -197,6 +197,10 @@ Unreleased
     :issue:`1791`
 -   When taking arguments from ``sys.argv`` on Windows, glob patterns,
     user dir, and env vars are expanded. :issue:`1096`
+-   Marked messages shown by the CLI with ``gettext()`` to allow
+    applications to translate Click's built-in strings. :issue:`303`
+-   Writing invalid characters  to ``stderr`` when using the test runner
+    does not raise a ``UnicodeEncodeError``. :issue:`848`
 
 
 Version 7.1.2
