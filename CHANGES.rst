@@ -203,6 +203,11 @@ Unreleased
     does not raise a ``UnicodeEncodeError``. :issue:`848`
 -   Fix an issue where ``readline`` would clear the entire ``prompt()``
     line instead of only the input when pressing backspace. :issue:`665`
+-   Add all kwargs passed to ``Context.invoke()`` to ``ctx.params``.
+    Fixes an inconsistency when nesting ``Context.forward()`` calls.
+    :issue:`1568`
+-   The ``MultiCommand.resultcallback`` decorator is renamed to
+    ``result_callback``. The old name is deprecated. :issue:`1160`
 
 
 Version 7.1.2
