@@ -34,7 +34,7 @@ idna==2.10
     # via requests
 imagesize==1.2.0
     # via sphinx
-importlib_metadata==4.0.1
+importlib-metadata==4.0.1
     # via -r requirements/tests.in
 iniconfig==1.1.1
     # via pytest
@@ -54,7 +54,7 @@ packaging==20.9
     #   pytest
     #   sphinx
     #   tox
-pallets-sphinx-themes==2.0.0rc1
+pallets-sphinx-themes==2.0.1
     # via -r requirements/docs.in
 pep517==0.10.0
     # via pip-tools
