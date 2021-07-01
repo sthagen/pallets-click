@@ -34,7 +34,7 @@ idna==2.10
     # via requests
 imagesize==1.2.0
     # via sphinx
-importlib_metadata==4.0.1
+importlib-metadata==4.0.1
     # via -r requirements/tests.in
 iniconfig==1.1.1
     # via pytest
@@ -42,10 +42,10 @@ jinja2==2.11.3
     # via sphinx
 markupsafe==1.1.1
     # via jinja2
+mypy==0.910
+    # via -r requirements/typing.in
 mypy-extensions==0.4.3
     # via mypy
-mypy==0.812
-    # via -r requirements/typing.in
 nodeenv==1.6.0
     # via pre-commit
 packaging==20.9
@@ -90,10 +90,6 @@ six==1.15.0
     #   virtualenv
 snowballstemmer==2.1.0
     # via sphinx
-sphinx-issues==1.2.0
-    # via -r requirements/docs.in
-sphinx-tabs==2.1.0
-    # via -r requirements/docs.in
 sphinx==3.5.4
     # via
     #   -r requirements/docs.in
@@ -101,6 +97,10 @@ sphinx==3.5.4
     #   sphinx-issues
     #   sphinx-tabs
     #   sphinxcontrib-log-cabinet
+sphinx-issues==1.2.0
+    # via -r requirements/docs.in
+sphinx-tabs==2.1.0
+    # via -r requirements/docs.in
 sphinxcontrib-applehelp==1.0.2
     # via sphinx
 sphinxcontrib-devhelp==1.0.2
@@ -117,14 +117,13 @@ sphinxcontrib-serializinghtml==1.1.4
     # via sphinx
 toml==0.10.2
     # via
+    #   mypy
     #   pep517
     #   pre-commit
     #   pytest
     #   tox
 tox==3.23.0
     # via -r requirements/dev.in
-typed-ast==1.4.3
-    # via mypy
 typing-extensions==3.7.4.3
     # via mypy
 urllib3==1.26.4
