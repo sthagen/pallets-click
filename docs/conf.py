@@ -11,7 +11,7 @@ click._compat.text_type = str
 project = "Click"
 copyright = "2014 Pallets"
 author = "Pallets"
-release, version = get_version("Click", version_length=1)
+release, version = get_version("Click")
 
 # General --------------------------------------------------------------
 
@@ -44,10 +44,10 @@ html_context = {
     ]
 }
 html_sidebars = {
-    "index": ["project.html", "localtoc.html", "searchbox.html"],
-    "**": ["localtoc.html", "relations.html", "searchbox.html"],
+    "index": ["project.html", "localtoc.html", "searchbox.html", "ethicalads.html"],
+    "**": ["localtoc.html", "relations.html", "searchbox.html", "ethicalads.html"],
 }
-singlehtml_sidebars = {"index": ["project.html", "localtoc.html"]}
+singlehtml_sidebars = {"index": ["project.html", "localtoc.html", "ethicalads.html"]}
 html_static_path = ["_static"]
 html_favicon = "_static/click-icon.png"
 html_logo = "_static/click-logo-sidebar.png"

@@ -13,6 +13,7 @@ from gettext import gettext as _
 from gettext import ngettext
 from itertools import repeat
 
+from . import types
 from ._unicodefun import _verify_python_env
 from .exceptions import Abort
 from .exceptions import BadParameter
@@ -30,11 +31,6 @@ from .parser import split_opt
 from .termui import confirm
 from .termui import prompt
 from .termui import style
-from .types import _NumberRangeBase
-from .types import BOOL
-from .types import convert_type
-from .types import IntRange
-from .types import ParamType
 from .utils import _detect_program_name
 from .utils import _expand_args
 from .utils import echo
@@ -50,7 +46,7 @@ F = t.TypeVar("F", bound=t.Callable[..., t.Any])
 V = t.TypeVar("V")
 
 
-def _fast_exit(code: int) -> t.NoReturn:
+def _fast_exit(code: int) -> "te.NoReturn":
     """Low-level exit that skips Python's cleanup but speeds up exit by
     about 10ms for things like shell completion.
 
@@ -308,7 +304,7 @@ class Context:
             obj = parent.obj
 
         #: the user object stored.
-        self.obj: t.Optional[t.Any] = obj
+        self.obj: t.Any = obj
         self._meta: t.Dict[str, t.Any] = getattr(parent, "meta", {})
 
         #: A dictionary (-like object) with defaults for parameters.
@@ -679,7 +675,7 @@ class Context:
 
         return None
 
-    def fail(self, message: str) -> t.NoReturn:
+    def fail(self, message: str) -> "te.NoReturn":
         """Aborts the execution of the program with a specific error
         message.
 
@@ -687,11 +683,11 @@ class Context:
         """
         raise UsageError(message, self)
 
-    def abort(self) -> t.NoReturn:
+    def abort(self) -> "te.NoReturn":
         """Aborts the script."""
         raise Abort()
 
-    def exit(self, code: int = 0) -> t.NoReturn:
+    def exit(self, code: int = 0) -> "te.NoReturn":
         """Exits the application with a given exit code."""
         raise Exit(code)
 
@@ -977,7 +973,7 @@ class BaseCommand:
         complete_var: t.Optional[str] = None,
         standalone_mode: "te.Literal[True]" = True,
         **extra: t.Any,
-    ) -> t.NoReturn:
+    ) -> "te.NoReturn":
         ...
 
     @typing.overload
@@ -997,6 +993,7 @@ class BaseCommand:
         prog_name: t.Optional[str] = None,
         complete_var: t.Optional[str] = None,
         standalone_mode: bool = True,
+        windows_expand_args: bool = True,
         **extra: t.Any,
     ) -> t.Any:
         """This is the way to invoke a script with all the bells and
@@ -1025,8 +1022,14 @@ class BaseCommand:
                                 propagated to the caller and the return
                                 value of this function is the return value
                                 of :meth:`invoke`.
+        :param windows_expand_args: Expand glob patterns, user dir, and
+            env vars in command line args on Windows.
         :param extra: extra keyword arguments are forwarded to the context
                       constructor.  See :class:`Context` for more information.
+
+        .. versionchanged:: 8.0.1
+            Added the ``windows_expand_args`` parameter to allow
+            disabling command line arg expansion on Windows.
 
         .. versionchanged:: 8.0
             When taking arguments from ``sys.argv`` on Windows, glob
@@ -1042,7 +1045,7 @@ class BaseCommand:
         if args is None:
             args = sys.argv[1:]
 
-            if os.name == "nt":
+            if os.name == "nt" and windows_expand_args:
                 args = _expand_args(args)
         else:
             args = list(args)
@@ -1721,7 +1724,7 @@ class MultiCommand(Command):
             if split_opt(cmd_name)[0]:
                 self.parse_args(ctx, ctx.args)
             ctx.fail(_("No such command {name!r}.").format(name=original_cmd_name))
-        return cmd.name if cmd else None, cmd, args[1:]
+        return cmd_name if cmd else None, cmd, args[1:]
 
     def get_command(self, ctx: Context, cmd_name: str) -> t.Optional[Command]:
         """Given a context and a command name, this returns a
@@ -2010,7 +2013,7 @@ class Parameter:
     def __init__(
         self,
         param_decls: t.Optional[t.Sequence[str]] = None,
-        type: t.Optional[t.Union["ParamType", t.Any]] = None,
+        type: t.Optional[t.Union[types.ParamType, t.Any]] = None,
         required: bool = False,
         default: t.Optional[t.Union[t.Any, t.Callable[[], t.Any]]] = None,
         callback: t.Optional[t.Callable[[Context, "Parameter", t.Any], t.Any]] = None,
@@ -2022,7 +2025,8 @@ class Parameter:
         envvar: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         shell_complete: t.Optional[
             t.Callable[
-                [Context, "Parameter", str], t.List[t.Union["CompletionItem", str]]
+                [Context, "Parameter", str],
+                t.Union[t.List["CompletionItem"], t.List[str]],
             ]
         ] = None,
         autocompletion: t.Optional[
@@ -2034,8 +2038,7 @@ class Parameter:
         self.name, self.opts, self.secondary_opts = self._parse_decls(
             param_decls or (), expose_value
         )
-
-        self.type = convert_type(type, default)
+        self.type = types.convert_type(type, default)
 
         # Default nargs to what the type tells us if we have that
         # information available.
@@ -2068,7 +2071,7 @@ class Parameter:
 
             def shell_complete(
                 ctx: Context, param: "Parameter", incomplete: str
-            ) -> t.List[t.Union["CompletionItem", str]]:
+            ) -> t.List["CompletionItem"]:
                 from click.shell_completion import CompletionItem
 
                 out = []
@@ -2194,11 +2197,15 @@ class Parameter:
         self, ctx: Context, call: bool = True
     ) -> t.Optional[t.Union[t.Any, t.Callable[[], t.Any]]]:
         """Get the default for the parameter. Tries
-        :meth:`Context.lookup_value` first, then the local default.
+        :meth:`Context.lookup_default` first, then the local default.
 
         :param ctx: Current context.
         :param call: If the default is a callable, call it. Disable to
             return the callable instead.
+
+        .. versionchanged:: 8.0.1
+            Type casting can fail in resilient parsing mode. Invalid
+            defaults will not prevent showing help text.
 
         .. versionchanged:: 8.0
             Looks at ``ctx.default_map`` first.
@@ -2218,7 +2225,13 @@ class Parameter:
 
             value = value()
 
-        return self.type_cast_value(ctx, value)
+        try:
+            return self.type_cast_value(ctx, value)
+        except BadParameter:
+            if ctx.resilient_parsing:
+                return value
+
+            raise
 
     def add_to_parser(self, parser: OptionParser, ctx: Context) -> None:
         raise NotImplementedError()
@@ -2371,7 +2384,7 @@ class Parameter:
         indicate which param caused the error.
         """
         hint_list = self.opts or [self.human_readable_name]
-        return " / ".join(repr(x) for x in hint_list)
+        return " / ".join(f"'{x}'" for x in hint_list)
 
     def shell_complete(self, ctx: Context, incomplete: str) -> t.List["CompletionItem"]:
         """Return a list of completions for the incomplete value. If a
@@ -2438,6 +2451,9 @@ class Option(Parameter):
                                context.
     :param help: the help string.
     :param hidden: hide this option from help outputs.
+
+    .. versionchanged:: 8.0.1
+        ``type`` is detected from ``flag_value`` if given.
     """
 
     param_type_name = "option"
@@ -2445,7 +2461,7 @@ class Option(Parameter):
     def __init__(
         self,
         param_decls: t.Optional[t.Sequence[str]] = None,
-        show_default: bool = False,
+        show_default: t.Union[bool, str] = False,
         prompt: t.Union[bool, str] = False,
         confirmation_prompt: t.Union[bool, str] = False,
         prompt_required: bool = True,
@@ -2455,7 +2471,7 @@ class Option(Parameter):
         multiple: bool = False,
         count: bool = False,
         allow_from_autoenv: bool = True,
-        type: t.Optional[t.Union["ParamType", t.Any]] = None,
+        type: t.Optional[t.Union[types.ParamType, t.Any]] = None,
         help: t.Optional[str] = None,
         hidden: bool = False,
         show_choices: bool = True,
@@ -2506,20 +2522,20 @@ class Option(Parameter):
         if flag_value is None:
             flag_value = not self.default
 
-        self.is_flag: bool = is_flag
-        self.flag_value: t.Any = flag_value
+        if is_flag and type is None:
+            # Re-guess the type from the flag value instead of the
+            # default.
+            self.type = types.convert_type(None, flag_value)
 
-        if self.is_flag and isinstance(self.flag_value, bool) and type in [None, bool]:
-            self.type: "ParamType" = BOOL
-            self.is_bool_flag = True
-        else:
-            self.is_bool_flag = False
+        self.is_flag: bool = is_flag
+        self.is_bool_flag = is_flag and isinstance(self.type, types.BoolParamType)
+        self.flag_value: t.Any = flag_value
 
         # Counting
         self.count = count
         if count:
             if type is None:
-                self.type = IntRange(min=0)
+                self.type = types.IntRange(min=0)
             if default_is_missing:
                 self.default = 0
 
@@ -2574,7 +2590,7 @@ class Option(Parameter):
         for decl in decls:
             if decl.isidentifier():
                 if name is not None:
-                    raise TypeError("Name defined twice")
+                    raise TypeError(f"Name '{name}' defined twice")
                 name = decl
             else:
                 split_char = ";" if decl[:1] == "/" else "/"
@@ -2701,14 +2717,24 @@ class Option(Parameter):
                 )
                 extra.append(_("env var: {var}").format(var=var_str))
 
-        default_value = self.get_default(ctx, call=False)
+        # Temporarily enable resilient parsing to avoid type casting
+        # failing for the default. Might be possible to extend this to
+        # help formatting in general.
+        resilient = ctx.resilient_parsing
+        ctx.resilient_parsing = True
+
+        try:
+            default_value = self.get_default(ctx, call=False)
+        finally:
+            ctx.resilient_parsing = resilient
+
         show_default_is_str = isinstance(self.show_default, str)
 
         if show_default_is_str or (
             default_value is not None and (self.show_default or ctx.show_default)
         ):
             if show_default_is_str:
-                default_string: t.Union[str, t.Any] = f"({self.show_default})"
+                default_string = f"({self.show_default})"
             elif isinstance(default_value, (list, tuple)):
                 default_string = ", ".join(str(d) for d in default_value)
             elif callable(default_value):
@@ -2720,11 +2746,12 @@ class Option(Parameter):
                     (self.opts if self.default else self.secondary_opts)[0]
                 )[1]
             else:
-                default_string = default_value
+                default_string = str(default_value)
 
-            extra.append(_("default: {default}").format(default=default_string))
+            if default_string:
+                extra.append(_("default: {default}").format(default=default_string))
 
-        if isinstance(self.type, _NumberRangeBase):
+        if isinstance(self.type, types._NumberRangeBase):
             range_str = self.type._describe_range()
 
             if range_str:
@@ -2734,7 +2761,7 @@ class Option(Parameter):
             extra.append(_("required"))
 
         if extra:
-            extra_str = ";".join(extra)
+            extra_str = "; ".join(extra)
             help = f"{help}  [{extra_str}]" if help else f"[{extra_str}]"
 
         return ("; " if any_prefix_is_slash else " / ").join(rv), help
@@ -2925,7 +2952,7 @@ class Argument(Parameter):
         return [self.make_metavar()]
 
     def get_error_hint(self, ctx: Context) -> str:
-        return repr(self.make_metavar())
+        return f"'{self.make_metavar()}'"
 
     def add_to_parser(self, parser: OptionParser, ctx: Context) -> None:
         parser.add_argument(dest=self.name, nargs=self.nargs, obj=self)

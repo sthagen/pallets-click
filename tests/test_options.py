@@ -4,6 +4,7 @@ import re
 import pytest
 
 import click
+from click import Option
 
 
 def test_prefixes(runner):
@@ -553,7 +554,7 @@ def test_option_help_preserve_paragraphs(runner):
 
 def test_argument_custom_class(runner):
     class CustomArgument(click.Argument):
-        def get_default(self, ctx):
+        def get_default(self, ctx, call=True):
             """a dumb override of a default value for testing"""
             return "I am a default"
 
@@ -727,6 +728,16 @@ def test_do_not_show_no_default(runner):
     assert "[default: None]" not in message
 
 
+def test_do_not_show_default_empty_multiple():
+    """When show_default is True and multiple=True is set, it should not
+    print empty default value in --help output.
+    """
+    opt = click.Option(["-a"], multiple=True, help="values", show_default=True)
+    ctx = click.Context(click.Command("cli"))
+    message = opt.get_help_record(ctx)[1]
+    assert message == "values"
+
+
 @pytest.mark.parametrize(
     ("args", "expect"),
     [
@@ -756,3 +767,29 @@ def test_option_with_optional_value(runner, args, expect):
 
     result = runner.invoke(cli, args, standalone_mode=False, catch_exceptions=False)
     assert result.return_value == expect
+
+
+def test_type_from_flag_value():
+    param = click.Option(["-a", "x"], default=True, flag_value=4)
+    assert param.type is click.INT
+    param = click.Option(["-b", "x"], flag_value=8)
+    assert param.type is click.INT
+
+
+@pytest.mark.parametrize(
+    ("option", "expected"),
+    [
+        # Not boolean flags
+        pytest.param(Option(["-a"], type=int), False, id="int option"),
+        pytest.param(Option(["-a"], type=bool), False, id="bool non-flag [None]"),
+        pytest.param(Option(["-a"], default=True), False, id="bool non-flag [True]"),
+        pytest.param(Option(["-a"], default=False), False, id="bool non-flag [False]"),
+        pytest.param(Option(["-a"], flag_value=1), False, id="non-bool flag_value"),
+        # Boolean flags
+        pytest.param(Option(["-a"], is_flag=True), True, id="is_flag=True"),
+        pytest.param(Option(["-a/-A"]), True, id="secondary option [implicit flag]"),
+        pytest.param(Option(["-a"], flag_value=True), True, id="bool flag_value"),
+    ],
+)
+def test_is_bool_flag_is_correctly_set(option, expected):
+    assert option.is_bool_flag is expected
