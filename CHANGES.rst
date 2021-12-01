@@ -5,8 +5,27 @@ Version 8.1.0
 
 Unreleased
 
+-   Drop support for Python 3.6. :pr:`2129`
+-   Remove previously deprecated code. :pr:`2130`
+
+    -   ``Group.resultcallback`` is renamed to ``result_callback``.
+    -   ``autocompletion`` parameter to ``Command`` is renamed to
+        ``shell_complete``.
+    -   ``get_terminal_size`` is removed, use
+        ``shutil.get_terminal_size`` instead.
+    -   ``get_os_args`` is removed, use ``sys.argv[1:]`` instead.
+
 -   Single options boolean flags with ``show_default=True`` only show
-    the default if it is ``True``. :issue:`1971`:
+    the default if it is ``True``. :issue:`1971`
+
+
+Version 8.0.4
+-------------
+
+Unreleased
+
+-   ``open_file`` recognizes ``Path("-")`` as a standard stream, the
+    same as the string ``"-"``. :issue:`2106`
 
 
 Version 8.0.3
