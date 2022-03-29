@@ -1,9 +1,15 @@
 .. currentmodule:: click
 
-Version 8.1.0
+Version 8.2.0
 -------------
 
 Unreleased
+
+
+Version 8.1.0
+-------------
+
+Released 2022-03-28
 
 -   Drop support for Python 3.6. :pr:`2129`
 -   Remove previously deprecated code. :pr:`2130`
@@ -15,8 +21,48 @@ Unreleased
         ``shutil.get_terminal_size`` instead.
     -   ``get_os_args`` is removed, use ``sys.argv[1:]`` instead.
 
+-   Rely on :pep:`538` and :pep:`540` to handle selecting UTF-8 encoding
+    instead of ASCII. Click's locale encoding detection is removed.
+    :issue:`2198`
 -   Single options boolean flags with ``show_default=True`` only show
     the default if it is ``True``. :issue:`1971`
+-   The ``command`` and ``group`` decorators can be applied with or
+    without parentheses. :issue:`1359`
+-   The ``Path`` type can check whether the target is executable.
+    :issue:`1961`
+-   ``Command.show_default`` overrides ``Context.show_default``, instead
+    of the other way around. :issue:`1963`
+-   Parameter decorators and ``@group`` handles ``cls=None`` the same as
+    not passing ``cls``. ``@option`` handles ``help=None`` the same as
+    not passing ``help``. :issue:`#1959`
+-   A flag option with ``required=True`` requires that the flag is
+    passed instead of choosing the implicit default value. :issue:`1978`
+-   Indentation in help text passed to ``Option`` and ``Command`` is
+    cleaned the same as using the ``@option`` and ``@command``
+    decorators does. A command's ``epilog`` and ``short_help`` are also
+    processed. :issue:`1985`
+-   Store unprocessed ``Command.help``, ``epilog`` and ``short_help``
+    strings. Processing is only done when formatting help text for
+    output. :issue:`2149`
+-   Allow empty str input for ``prompt()`` when
+    ``confirmation_prompt=True`` and ``default=""``. :issue:`2157`
+-   Windows glob pattern expansion doesn't fail if a value is an invalid
+    pattern. :issue:`2195`
+-   It's possible to pass a list of ``params`` to ``@command``. Any
+    params defined with decorators are appended to the passed params.
+    :issue:`2131`.
+-   ``@command`` decorator is annotated as returning the correct type if
+    a ``cls`` argument is used. :issue:`2211`
+-   A ``Group`` with ``invoke_without_command=True`` and ``chain=False``
+    will invoke its result callback with the group function's return
+    value. :issue:`2124`
+-   ``to_info_dict`` will not fail if a ``ParamType`` doesn't define a
+    ``name``. :issue:`2168`
+-   Shell completion prioritizes option values with option prefixes over
+    new options. :issue:`2040`
+-   Options that get an environment variable value using
+    ``autoenvvar_prefix`` treat an empty value as ``None``, consistent
+    with a direct ``envvar``. :issue:`2146`
 
 
 Version 8.0.4
