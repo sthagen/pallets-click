@@ -43,6 +43,25 @@ Unreleased
     collect stderr output and never raise an exception. Add a new
     output` stream to simulate what the user sees in its terminal. Removes
     the ``mix_stderr`` parameter in ``CliRunner``. :issue:`2522` :pr:`2523`
+-   ``Option.show_envvar`` now also shows environment variable in error messages.
+    :issue:`2695` :pr:`2696`
+-   ``Context.close`` will be called on exit. This results in all
+    ``Context.call_on_close`` callbacks and context managers added via
+    ``Context.with_resource`` to be closed on exit as well. :pr:`2680`
+-   Add ``ProgressBar(hidden: bool)`` to allow hiding the progressbar. :issue:`2609`
+-   A ``UserWarning`` will be shown when multiple parameters attempt to use the
+    same name. :issue:`2396``
+-   When using ``Option.envvar`` with ``Option.flag_value``, the ``flag_value``
+    will always be used instead of the value of the environment variable.
+    :issue:`2746` :pr:`2788`
+-   Add ``Choice.get_invalid_choice_message`` method for customizing the
+    invalid choice message. :issue:`2621` :pr:`2622`
+-   If help is shown because ``no_args_is_help`` is enabled (defaults to ``True``
+    for groups, ``False`` for commands), the exit code is 2 instead of 0.
+    :issue:`1489` :pr:`1489`
+-   Contexts created during shell completion are closed properly, fixing
+    ``ResourceWarning``s when using ``click.File``. :issue:`2644` :pr:`2800`
+    :pr:`2767`
 
 
 Version 8.1.8

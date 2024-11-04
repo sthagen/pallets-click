@@ -198,6 +198,19 @@ def test_nargs_envvar(runner, nargs, value, expect):
         assert result.return_value == expect
 
 
+def test_envvar_flag_value(runner):
+    @click.command()
+    # is_flag is implicitly true
+    @click.option("--upper", flag_value="upper", envvar="UPPER")
+    def cmd(upper):
+        click.echo(upper)
+        return upper
+
+    # For whatever value of the `env` variable, if it exists, the flag should be `upper`
+    result = runner.invoke(cmd, env={"UPPER": "whatever"})
+    assert result.output.strip() == "upper"
+
+
 def test_nargs_envvar_only_if_values_empty(runner):
     @click.command()
     @click.argument("arg", envvar="X", nargs=-1)
@@ -401,3 +414,23 @@ def test_when_argument_decorator_is_used_multiple_times_cls_is_preserved():
 
     assert isinstance(foo.params[0], CustomArgument)
     assert isinstance(bar.params[0], CustomArgument)
+
+
+@pytest.mark.parametrize(
+    "args_one,args_two",
+    [
+        (
+            ("aardvark",),
+            ("aardvark",),
+        ),
+    ],
+)
+def test_duplicate_names_warning(runner, args_one, args_two):
+    @click.command()
+    @click.argument(*args_one)
+    @click.argument(*args_two)
+    def cli(one, two):
+        pass
+
+    with pytest.warns(UserWarning):
+        runner.invoke(cli, [])

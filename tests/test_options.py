@@ -531,6 +531,22 @@ def test_missing_choice(runner):
     assert "bar" in choices
 
 
+def test_missing_envvar(runner):
+    cli = click.Command(
+        "cli", params=[click.Option(["--foo"], envvar="bar", required=True)]
+    )
+    result = runner.invoke(cli)
+    assert result.exit_code == 2
+    assert "Error: Missing option '--foo'." in result.output
+    cli = click.Command(
+        "cli",
+        params=[click.Option(["--foo"], envvar="bar", show_envvar=True, required=True)],
+    )
+    result = runner.invoke(cli)
+    assert result.exit_code == 2
+    assert "Error: Missing option '--foo' (env var: 'bar')." in result.output
+
+
 def test_case_insensitive_choice(runner):
     @click.command()
     @click.option("--foo", type=click.Choice(["Orange", "Apple"], case_sensitive=False))
@@ -973,3 +989,29 @@ def test_usage_show_choices(runner, choices, metavars):
 
     result = runner.invoke(cli_without_choices, ["--help"])
     assert metavars in result.output
+
+
+@pytest.mark.parametrize(
+    "opts_one,opts_two",
+    [
+        # No duplicate shortnames
+        (
+            ("-a", "--aardvark"),
+            ("-a", "--avocado"),
+        ),
+        # No duplicate long names
+        (
+            ("-a", "--aardvark"),
+            ("-b", "--aardvark"),
+        ),
+    ],
+)
+def test_duplicate_names_warning(runner, opts_one, opts_two):
+    @click.command()
+    @click.option(*opts_one)
+    @click.option(*opts_two)
+    def cli(one, two):
+        pass
+
+    with pytest.warns(UserWarning):
+        runner.invoke(cli, [])

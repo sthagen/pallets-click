@@ -8,6 +8,7 @@ import os
 import sys
 import typing as t
 from collections import abc
+from collections import Counter
 from contextlib import AbstractContextManager
 from contextlib import contextmanager
 from contextlib import ExitStack
@@ -23,6 +24,7 @@ from .exceptions import BadParameter
 from .exceptions import ClickException
 from .exceptions import Exit
 from .exceptions import MissingParameter
+from .exceptions import NoArgsIsHelpError
 from .exceptions import UsageError
 from .formatting import HelpFormatter
 from .formatting import join_options
@@ -699,7 +701,13 @@ class Context:
         raise Abort()
 
     def exit(self, code: int = 0) -> t.NoReturn:
-        """Exits the application with a given exit code."""
+        """Exits the application with a given exit code.
+
+        .. versionchanged:: 8.2
+            Callbacks and context managers registered with :meth:`call_on_close`
+            and :meth:`with_resource` are closed before exiting.
+        """
+        self.close()
         raise Exit(code)
 
     def get_usage(self) -> str:
@@ -951,13 +959,29 @@ class Command:
         return formatter.getvalue().rstrip("\n")
 
     def get_params(self, ctx: Context) -> list[Parameter]:
-        rv = self.params
+        params = self.params
         help_option = self.get_help_option(ctx)
 
         if help_option is not None:
-            rv = [*rv, help_option]
+            params = [*params, help_option]
 
-        return rv
+        if __debug__:
+            import warnings
+
+            opts = [opt for param in params for opt in param.opts]
+            opts_counter = Counter(opts)
+            duplicate_opts = (opt for opt, count in opts_counter.items() if count > 1)
+
+            for duplicate_opt in duplicate_opts:
+                warnings.warn(
+                    (
+                        f"The parameter {duplicate_opt} is used more than once. "
+                        "Remove its duplicate as parameters should be unique."
+                    ),
+                    stacklevel=3,
+                )
+
+        return params
 
     def format_usage(self, ctx: Context, formatter: HelpFormatter) -> None:
         """Writes the usage line into the formatter.
@@ -1133,8 +1157,7 @@ class Command:
 
     def parse_args(self, ctx: Context, args: list[str]) -> list[str]:
         if not args and self.no_args_is_help and not ctx.resilient_parsing:
-            echo(ctx.get_help(), color=ctx.color)
-            ctx.exit()
+            raise NoArgsIsHelpError(ctx)
 
         parser = self.make_parser(ctx)
         opts, args, param_order = parser.parse_args(args=args)
@@ -1724,8 +1747,7 @@ class Group(Command):
 
     def parse_args(self, ctx: Context, args: list[str]) -> list[str]:
         if not args and self.no_args_is_help and not ctx.resilient_parsing:
-            echo(ctx.get_help(), color=ctx.color)
-            ctx.exit()
+            raise NoArgsIsHelpError(ctx)
 
         rest = super().parse_args(ctx, args)
 
@@ -1828,7 +1850,7 @@ class Group(Command):
         # place.
         if cmd is None and not ctx.resilient_parsing:
             if _split_opt(cmd_name)[0]:
-                self.parse_args(ctx, ctx.args)
+                self.parse_args(ctx, args)
             ctx.fail(_("No such command {name!r}.").format(name=original_cmd_name))
         return cmd_name if cmd else None, cmd, args[1:]
 
@@ -1966,6 +1988,10 @@ class Parameter:
         given. Takes ``ctx, param, incomplete`` and must return a list
         of :class:`~click.shell_completion.CompletionItem` or a list of
         strings.
+
+    .. versionchanged:: 8.2
+        Adding duplicate parameter names to a :class:`~click.core.Command` will
+        result in a ``UserWarning`` being shown.
 
     .. versionchanged:: 8.0
         ``process_value`` validates required parameters and bounded
@@ -2372,8 +2398,8 @@ class Option(Parameter):
         For single option boolean flags, the default remains hidden if
         its value is ``False``.
     :param show_envvar: Controls if an environment variable should be
-        shown on the help page. Normally, environment variables are not
-        shown.
+        shown on the help page and error messages.
+        Normally, environment variables are not shown.
     :param prompt: If set to ``True`` or a non empty string then the
         user will be prompted for input. If set to ``True`` the prompt
         will be the option name capitalized.
@@ -2403,15 +2429,19 @@ class Option(Parameter):
     :param hidden: hide this option from help outputs.
     :param attrs: Other command arguments described in :class:`Parameter`.
 
-    .. versionchanged:: 8.1.0
+    .. versionchanged:: 8.2
+        ``envvar`` used with ``flag_value`` will always use the ``flag_value``,
+        previously it would use the value of the environment variable.
+
+    .. versionchanged:: 8.1
         Help text indentation is cleaned here instead of only in the
         ``@option`` decorator.
 
-    .. versionchanged:: 8.1.0
+    .. versionchanged:: 8.1
         The ``show_default`` parameter overrides
         ``Context.show_default``.
 
-    .. versionchanged:: 8.1.0
+    .. versionchanged:: 8.1
         The default of a single option boolean flag is not shown if the
         default value is ``False``.
 
@@ -2550,6 +2580,12 @@ class Option(Parameter):
             hidden=self.hidden,
         )
         return info_dict
+
+    def get_error_hint(self, ctx: Context) -> str:
+        result = super().get_error_hint(ctx)
+        if self.show_envvar:
+            result += f" (env var: '{self.envvar}')"
+        return result
 
     def _parse_decls(
         self, decls: cabc.Sequence[str], expose_value: bool
@@ -2831,6 +2867,8 @@ class Option(Parameter):
         rv = super().resolve_envvar_value(ctx)
 
         if rv is not None:
+            if self.is_flag and self.flag_value:
+                return str(self.flag_value)
             return rv
 
         if (
@@ -2962,7 +3000,7 @@ class Argument(Parameter):
         else:
             raise TypeError(
                 "Arguments take exactly one parameter declaration, got"
-                f" {len(decls)}."
+                f" {len(decls)}: {decls}."
             )
         return name, [arg], []
 
