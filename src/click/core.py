@@ -90,7 +90,7 @@ def _check_nested_chain(
 
 
 def batch(iterable: cabc.Iterable[V], batch_size: int) -> list[tuple[V, ...]]:
-    return list(zip(*repeat(iter(iterable), batch_size)))
+    return list(zip(*repeat(iter(iterable), batch_size), strict=False))
 
 
 @contextmanager
@@ -1218,8 +1218,7 @@ class Command:
                 f" {self.deprecated}" if isinstance(self.deprecated, str) else ""
             )
             message = _(
-                "DeprecationWarning: The command {name!r} is deprecated."
-                "{extra_message}"
+                "DeprecationWarning: The command {name!r} is deprecated.{extra_message}"
             ).format(name=self.name, extra_message=extra_message)
             echo(style(message, fg="red"), err=True)
 
@@ -1617,9 +1616,9 @@ class Group(Command):
         func: t.Callable[..., t.Any] | None = None
 
         if args and callable(args[0]):
-            assert (
-                len(args) == 1 and not kwargs
-            ), "Use 'command(**kwargs)(callable)' to provide arguments."
+            assert len(args) == 1 and not kwargs, (
+                "Use 'command(**kwargs)(callable)' to provide arguments."
+            )
             (func,) = args
             args = ()
 
@@ -1666,9 +1665,9 @@ class Group(Command):
         func: t.Callable[..., t.Any] | None = None
 
         if args and callable(args[0]):
-            assert (
-                len(args) == 1 and not kwargs
-            ), "Use 'group(**kwargs)(callable)' to provide arguments."
+            assert len(args) == 1 and not kwargs, (
+                "Use 'group(**kwargs)(callable)' to provide arguments."
+            )
             (func,) = args
             args = ()
 
