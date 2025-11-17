@@ -1,6 +1,6 @@
 [project]
 name = "click"
-version = "8.3.dev"
+version = "8.3.1"
 description = "Composable command line interface toolkit"
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -132,9 +132,6 @@ select = [
     "UP",  # pyupgrade
     "W",  # pycodestyle warning
 ]
-ignore = [
-    "UP038",  # keep isinstance tuple
-]
 
 [tool.ruff.lint.isort]
 force-single-line = true
@@ -174,6 +171,7 @@ description = "run static type checkers"
 dependency_groups = ["typing"]
 commands = [
     ["mypy"],
+    ["pyright", "--ignoreexternal", "--verifytypes", "click"],
 ]
 
 [tool.tox.env.docs]

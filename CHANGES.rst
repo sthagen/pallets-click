@@ -1,9 +1,9 @@
 .. currentmodule:: click
 
-Version 8.3.x
+Version 8.3.1
 --------------
 
-Unreleased
+Released 2025-11-15
 
 -   Don't discard pager arguments by correctly using ``subprocess.Popen``. :issue:`3039`
     :pr:`3055`
@@ -11,6 +11,8 @@ Unreleased
     the ``Context.invoke()`` method. :issue:`3066` :issue:`3065` :pr:`3068`
 -   Fix conversion of ``Sentinel.UNSET`` happening too early, which caused incorrect
     behavior for multiple parameters using the same name. :issue:`3071` :pr:`3079`
+-   Hide ``Sentinel.UNSET`` values as ``None`` when looking up for other parameters
+    through the context inside parameter callbacks. :issue:`3136` :pr:`3137`
 -   Fix rendering when ``prompt`` and ``confirm`` parameter ``prompt_suffix`` is
     empty. :issue:`3019` :pr:`3021`
 -   When ``Sentinel.UNSET`` is found during parsing, it will skip calls to

@@ -2167,7 +2167,7 @@ class Parameter:
         self.nargs = nargs
         self.multiple = multiple
         self.expose_value = expose_value
-        self.default = default
+        self.default: t.Any | t.Callable[[], t.Any] | None = default
         self.is_eager = is_eager
         self.metavar = metavar
         self.envvar = envvar
@@ -2440,7 +2440,37 @@ class Parameter:
             # to None.
             if value is UNSET:
                 value = None
-            value = self.callback(ctx, self, value)
+
+            # Search for parameters with UNSET values in the context.
+            unset_keys = {k: None for k, v in ctx.params.items() if v is UNSET}
+            # No UNSET values, call the callback as usual.
+            if not unset_keys:
+                value = self.callback(ctx, self, value)
+
+            # Legacy case: provide a temporarily manipulated context to the callback
+            # to hide UNSET values as None.
+            #
+            # Refs:
+            # https://github.com/pallets/click/issues/3136
+            # https://github.com/pallets/click/pull/3137
+            else:
+                # Add another layer to the context stack to clearly hint that the
+                # context is temporarily modified.
+                with ctx:
+                    # Update the context parameters to replace UNSET with None.
+                    ctx.params.update(unset_keys)
+                    # Feed these fake context parameters to the callback.
+                    value = self.callback(ctx, self, value)
+                    # Restore the UNSET values in the context parameters.
+                    ctx.params.update(
+                        {
+                            k: UNSET
+                            for k in unset_keys
+                            # Only restore keys that are present and still None, in case
+                            # the callback modified other parameters.
+                            if k in ctx.params and ctx.params[k] is None
+                        }
+                    )
 
         return value
 
@@ -2762,7 +2792,7 @@ class Option(Parameter):
             if type is None:
                 # A flag without a flag_value is a boolean flag.
                 if flag_value is UNSET:
-                    self.type = types.BoolParamType()
+                    self.type: types.ParamType = types.BoolParamType()
                 # If the flag value is a boolean, use BoolParamType.
                 elif isinstance(flag_value, bool):
                     self.type = types.BoolParamType()
