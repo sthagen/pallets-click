@@ -79,6 +79,7 @@ How to Guides
 
    entry-points
    setuptools
+   upgrade-guides
    support-multiple-versions
 
 Conceptual Guides
