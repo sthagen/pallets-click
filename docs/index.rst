@@ -79,6 +79,7 @@ How to Guides
 
    entry-points
    setuptools
+   upgrade-guides
    support-multiple-versions
 
 Conceptual Guides
@@ -128,7 +129,7 @@ API Reference
 About Project
 ===============
 
-* This documentation is structured according to `Diataxis <https://diataxis.fr/>`_
+* This documentation is structured according to `Diataxis <https://diataxis.fr/>`_ and written with `MyST <https://myst-parser.readthedocs.io/en/latest/>`_
 
 * `Version Policy <https://palletsprojects.com/versions>`_
 
