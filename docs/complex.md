@@ -312,6 +312,7 @@ import click
 def cli():
     pass
 ```
+
 ```python
 # in bar.py
 import click
@@ -341,7 +342,7 @@ There are several events which may trigger lazy loading by running the
 {meth}`Group.get_command` function.
 Some are intuititve, and some are less so.
 
-All cases are described with respect to the above example, assuming the main progra
+All cases are described with respect to the above example, assuming the main program
 name is `cli`.
 
 1. Command resolution. If a user runs `cli bar baz`, this must first resolve `bar`,
