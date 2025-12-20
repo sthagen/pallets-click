@@ -207,10 +207,10 @@ no arguments.
 As such it runs standalone:
 
 ```python
-    @click.command()
-    @pass_repo
-    def cp(repo):
-        click.echo(isinstance(repo, Repo))
+@click.command()
+@pass_repo
+def cp(repo):
+    click.echo(isinstance(repo, Repo))
 ```
 As you can see:
 
