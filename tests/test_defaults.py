@@ -2,6 +2,7 @@ import pytest
 
 import click
 from click import UNPROCESSED
+from click._utils import UNSET
 
 
 @pytest.mark.parametrize(
@@ -83,7 +84,7 @@ def test_nargs_plus_multiple(runner):
 
 
 def test_multiple_flag_default(runner):
-    """Default default for flags when multiple=True should be empty tuple."""
+    """Default for flags when multiple=True should be empty tuple."""
 
     @click.command
     # flag due to secondary token
@@ -273,7 +274,7 @@ def test_lookup_default_override_respected(runner):
     ``None``.
 
     Previous attempts in https://github.com/pallets/click/pr/3199 were entirely
-    bypassing the user's overridded method.
+    bypassing the user's overridden method.
     """
 
     class CustomContext(click.Context):
@@ -354,3 +355,22 @@ def test_default_map_with_callable_flag_value(runner, default_map, args, expecte
     result = runner.invoke(cli, args, **kwargs)
     assert result.exit_code == 0
     assert result.output == repr(expected)
+
+
+def test_unset_in_default_map(runner):
+    """An ``UNSET`` value in ``default_map`` should be treated as if
+    the key is absent, and so fallback to the parameter's own default.
+
+    Refs: https://github.com/pallets/click/pull/3224#issuecomment-3968643305
+    """
+
+    @click.command(
+        context_settings={"default_map": {"port": UNSET}},
+    )
+    @click.option("--port", default=8000)
+    def cli(port):
+        click.echo(f"port={port}")
+
+    result = runner.invoke(cli, [])
+    assert result.exit_code == 0
+    assert result.output.strip() == "port=8000"

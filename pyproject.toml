@@ -1,6 +1,6 @@
 [project]
 name = "click"
-version = "8.3.2"
+version = "8.3.3"
 description = "Composable command line interface toolkit"
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -50,6 +50,11 @@ pre-commit = [
 ]
 tests = [
     "pytest",
+]
+tests-random = [
+    "pytest",
+    "pytest-randomly",
+    "pytest-xdist",
 ]
 typing = [
     "mypy",
@@ -162,6 +167,15 @@ use_frozen_constraints = true
 dependency_groups = ["tests"]
 commands = [[
     "pytest", "-v", "--tb=short", "--basetemp={env_tmp_dir}",
+    {replace = "posargs", default = [], extend = true},
+]]
+
+[tool.tox.env.random]
+description = "randomized parallel tests to detect test pollution and race conditions"
+dependency_groups = ["tests-random"]
+commands = [[
+    "pytest", "-v", "--tb=short", "--numprocesses=auto",
+    "--basetemp={env_tmp_dir}",
     {replace = "posargs", default = [], extend = true},
 ]]
 
