@@ -8,6 +8,7 @@ from contextlib import nullcontext
 from decimal import Decimal
 from fractions import Fraction
 from functools import partial
+from io import BytesIO
 from io import StringIO
 from unittest.mock import patch
 
@@ -96,6 +97,10 @@ def test_echo_custom_file():
     f = StringIO()
     click.echo("hello", file=f)
     assert f.getvalue() == "hello\n"
+
+    b = BytesIO()
+    click.echo(b"", b)
+    assert b.getvalue() == b"\n"
 
 
 def test_echo_no_streams(monkeypatch, runner):
@@ -311,7 +316,7 @@ EchoViaPagerTest = namedtuple(
 
 @pytest.mark.skipif(WIN, reason="Different behavior on windows.")
 @pytest.mark.skipif(
-    MAC and sys.version_info >= (3, 13) and sys._is_gil_enabled(),
+    MAC and sys.version_info >= (3, 13) and not sys._is_gil_enabled(),
     reason="Generator exception tests are flaky in Python 3.14t on macOS.",
 )
 @pytest.mark.parametrize(
@@ -467,22 +472,18 @@ def test_echo_color_flag(monkeypatch, capfd):
     out, err = capfd.readouterr()
     assert out == f"{styled_text}\n"
 
-    isatty = True
     click.echo(styled_text)
     out, err = capfd.readouterr()
     assert out == f"{styled_text}\n"
 
     isatty = False
-    # Faking isatty() is not enough on Windows;
-    # the implementation caches the colorama wrapped stream
-    # so we have to use a new stream for each test
-    stream = StringIO()
-    click.echo(styled_text, file=stream)
-    assert stream.getvalue() == f"{text}\n"
+    click.echo(styled_text)
+    out, err = capfd.readouterr()
+    assert out == f"{text}\n"
 
-    stream = StringIO()
-    click.echo(styled_text, file=stream, color=True)
-    assert stream.getvalue() == f"{styled_text}\n"
+    click.echo(styled_text, color=True)
+    out, err = capfd.readouterr()
+    assert out == f"{styled_text}\n"
 
 
 def test_prompt_cast_default(capfd, monkeypatch):

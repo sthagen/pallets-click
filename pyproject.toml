@@ -14,9 +14,6 @@ classifiers = [
     "Typing :: Typed",
 ]
 requires-python = ">=3.10"
-dependencies = [
-    "colorama; platform_system == 'Windows'",
-]
 
 [project.urls]
 Donate = "https://palletsprojects.com/donate"
@@ -114,12 +111,6 @@ show_error_codes = true
 pretty = true
 strict = true
 
-[[tool.mypy.overrides]]
-module = [
-    "colorama.*",
-]
-ignore_missing_imports = true
-
 [tool.pyright]
 pythonVersion = "3.10"
 include = ["src", "tests/typing"]
@@ -140,7 +131,12 @@ select = [
     "I",  # isort
     "UP",  # pyupgrade
     "W",  # pycodestyle warning
+    "ICN", #flake8-import-conventions (ICN)
 ]
+
+[tool.ruff.lint.flake8-import-conventions.aliases]
+# Declare the default aliases.
+typing = "t"
 
 [tool.ruff.lint.isort]
 force-single-line = true
