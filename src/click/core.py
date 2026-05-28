@@ -1172,11 +1172,13 @@ class Command:
 
         -   :meth:`format_usage`
         -   :meth:`format_help_text`
+        -   :meth:`format_arguments`
         -   :meth:`format_options`
         -   :meth:`format_epilog`
         """
         self.format_usage(ctx, formatter)
         self.format_help_text(ctx, formatter)
+        self.format_arguments(ctx, formatter)
         self.format_options(ctx, formatter)
         self.format_epilog(ctx, formatter)
 
@@ -1189,7 +1191,8 @@ class Command:
             text = ""
 
         if self.deprecated:
-            text = f"{_(text)} {_format_deprecated_label(self.deprecated)}"
+            label = _format_deprecated_label(self.deprecated)
+            text = f"{_(text)} {label}" if text else label
 
         if text:
             formatter.write_paragraph()
@@ -1202,12 +1205,24 @@ class Command:
         opts = []
         for param in self.get_params(ctx):
             rv = param.get_help_record(ctx)
-            if rv is not None:
+            if rv is not None and not isinstance(param, Argument):
                 opts.append(rv)
 
         if opts:
             with formatter.section(_("Options")):
                 formatter.write_dl(opts)
+
+    def format_arguments(self, ctx: Context, formatter: HelpFormatter) -> None:
+        """Writes the arguments that have a help record into the formatter."""
+        args = []
+        for param in self.get_params(ctx):
+            rv = param.get_help_record(ctx)
+            if rv is not None and isinstance(param, Argument):
+                args.append(rv)
+
+        if args:
+            with formatter.section(_("Positional arguments")):
+                formatter.write_dl(args)
 
     def format_epilog(self, ctx: Context, formatter: HelpFormatter) -> None:
         """Writes the epilog into the formatter if it exists."""
@@ -1622,8 +1637,15 @@ class Group(Command):
         self.invoke_without_command = invoke_without_command
 
         if subcommand_metavar is None:
+            # When the group can run without a subcommand, the leading command
+            # token is optional, so wrap it in brackets to reflect that.
             if chain:
-                subcommand_metavar = "COMMAND1 [ARGS]... [COMMAND2 [ARGS]...]..."
+                if invoke_without_command:
+                    subcommand_metavar = "[COMMAND1] [ARGS]... [COMMAND2 [ARGS]...]..."
+                else:
+                    subcommand_metavar = "COMMAND1 [ARGS]... [COMMAND2 [ARGS]...]..."
+            elif invoke_without_command:
+                subcommand_metavar = "[COMMAND] [ARGS]..."
             else:
                 subcommand_metavar = "COMMAND [ARGS]..."
 
@@ -2826,7 +2848,7 @@ class Option(Parameter):
 
         if deprecated:
             label = _format_deprecated_label(deprecated)
-            help = f"{help} {label}" if help is not None else label
+            help = f"{help} {label}" if help else label
 
         self.prompt = prompt_text
         self.confirmation_prompt = confirmation_prompt
@@ -3442,6 +3464,11 @@ class Argument(Parameter):
     and are required by default.
 
     All parameters are passed onwards to the constructor of :class:`Parameter`.
+
+    :param help: the help string.
+
+    .. versionchanged:: 8.5
+        Added the ``help`` parameter.
     """
 
     param_type_name = "argument"
@@ -3450,6 +3477,7 @@ class Argument(Parameter):
         self,
         param_decls: cabc.Sequence[str],
         required: bool | None = None,
+        help: str | None = None,
         **attrs: t.Any,
     ) -> None:
         # Auto-detect the requirement status of the argument if not explicitly set.
@@ -3465,7 +3493,23 @@ class Argument(Parameter):
         if "multiple" in attrs:
             raise TypeError("__init__() got an unexpected keyword argument 'multiple'.")
 
+        deprecated = attrs.get("deprecated", False)
+
+        if help:
+            help = inspect.cleandoc(help)
+
+        if deprecated:
+            label = _format_deprecated_label(deprecated)
+            help = f"{help} {label}" if help else label
+
+        self.help = help
+
         super().__init__(param_decls, required=required, **attrs)
+
+    def to_info_dict(self) -> dict[str, t.Any]:
+        info_dict = super().to_info_dict()
+        info_dict.update(help=self.help)
+        return info_dict
 
     @property
     def human_readable_name(self) -> str:
@@ -3508,6 +3552,12 @@ class Argument(Parameter):
 
     def get_usage_pieces(self, ctx: Context) -> list[str]:
         return [self.make_metavar(ctx)]
+
+    def get_help_record(self, ctx: Context) -> tuple[str, str] | None:
+        if self.help is None:
+            return None
+
+        return self.make_metavar(ctx), self.help
 
     def get_error_hint(self, ctx: Context | None) -> str:
         if ctx is not None:
