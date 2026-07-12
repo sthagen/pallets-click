@@ -11,6 +11,7 @@ from contextlib import AbstractContextManager
 from contextlib import redirect_stdout
 from gettext import gettext as _
 
+from . import _compat
 from ._compat import isatty
 from ._compat import strip_ansi
 from .exceptions import Abort
@@ -81,9 +82,22 @@ def hidden_prompt_func(prompt: str) -> str:
 
 
 def _readline_prompt(func: t.Callable[[str], str], text: str, err: bool) -> str:
-    """Call a prompt function, passing the full prompt on non-Windows so
-    readline can handle line editing and cursor positioning correctly.
+    """Call a prompt function, passing the full prompt so readline can
+    handle line editing and cursor positioning correctly.
+
+    The prompt is handed to *func* (such as :func:`input`) rather than
+    written through :func:`echo`, so it has to strip ANSI color and style
+    codes itself when the destination stream does not support them. Without
+    this the prompt would keep codes that :func:`echo` removes from the
+    rest of the output.
     """
+    stream = sys.stderr if err else sys.stdout
+
+    # Look up ``should_strip_ansi`` on the module so that ``CliRunner``,
+    # which patches it there during test isolation, is honored.
+    if _compat.should_strip_ansi(stream, resolve_color_default()):
+        text = strip_ansi(text)
+
     if err:
         with redirect_stdout(sys.stderr):
             return func(text)
@@ -556,14 +570,28 @@ def clear() -> None:
 
 
 def _interpret_color(color: int | tuple[int, int, int] | str, offset: int = 0) -> str:
-    if isinstance(color, int):
-        return f"{38 + offset};5;{color:d}"
+    """Interprets a color value and returns the corresponding ANSI code."""
+    if isinstance(color, str) and color in _ansi_colors:
+        return str(_ansi_colors[color] + offset)
 
-    if isinstance(color, (tuple, list)):
+    # bool is an int subclass: without the exclusion, True and False would
+    # silently render as the palette indices 1 and 0.
+    elif isinstance(color, int) and not isinstance(color, bool):
+        if 0 <= color <= 255:
+            return f"{38 + offset};5;{color:d}"
+
+    elif (
+        isinstance(color, (tuple, list))
+        and len(color) == 3
+        and all(
+            isinstance(c, int) and not isinstance(c, bool) and 0 <= c <= 255
+            for c in color
+        )
+    ):
         r, g, b = color
         return f"{38 + offset};2;{r:d};{g:d};{b:d}"
 
-    return str(_ansi_colors[color] + offset)
+    raise ValueError(_("Unknown color {colour!r}").format(colour=color))
 
 
 def style(
@@ -641,6 +669,10 @@ def style(
                   string which means that styles do not carry over.  This
                   can be disabled to compose styles.
 
+    .. versionchanged:: 8.5
+        All invalid color values raise :exc:`ValueError`. 256-color index
+        ``0`` is not ignored
+
     .. versionchanged:: 8.0
         A non-string ``message`` is converted to a string.
 
@@ -661,17 +693,11 @@ def style(
 
     bits = []
 
-    if fg:
-        try:
-            bits.append(f"\033[{_interpret_color(fg)}m")
-        except KeyError:
-            raise TypeError(_("Unknown color {colour!r}").format(colour=fg)) from None
+    if fg is not None:
+        bits.append(f"\033[{_interpret_color(fg)}m")
 
-    if bg:
-        try:
-            bits.append(f"\033[{_interpret_color(bg, 10)}m")
-        except KeyError:
-            raise TypeError(_("Unknown color {colour!r}").format(colour=bg)) from None
+    if bg is not None:
+        bits.append(f"\033[{_interpret_color(bg, 10)}m")
 
     if bold is not None:
         bits.append(f"\033[{1 if bold else 22}m")

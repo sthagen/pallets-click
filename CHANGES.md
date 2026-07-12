@@ -6,10 +6,31 @@ Unreleased
   Colorama is no longer a dependency and is not used. {issue}`2986` {pr}`3505`
 - {class}`Argument` accepts a `help` parameter, and help output includes
   a `Positional arguments` section when argument help is available. {issue}`2983` {pr}`3473`
+- `confirm()` and `prompt()` strip ANSI color and style codes from the
+  prompt when the output stream does not support them, matching `echo()`.
+  This stripping was lost in `8.4.0` when {pr}`2969` began writing the
+  prompt with `input()` directly. {issue}`3572` {pr}`3653`
+- Fix test failures when using pytest >= 9.1. {pr}`3656`
+- Add {func}`custom_version_option`, a `--version` option whose output is
+  produced by a callback, covering cases {func}`version_option` intentionally
+  does not. The feature set of {func}`version_option` is now frozen; see
+  [discussion #3527](https://github.com/pallets/click/discussions/3527). {pr}`3581`
+- `style()` and `secho()` no longer silently drop the 256-color index `0`
+  (black) passed as `fg` or `bg`, and now validate color arguments. {pr}`3677`
+- The automatic help option stores its value under the reserved name
+  `_click_default_help` instead of `help`, so a parameter named `help` no
+  longer breaks parsing. The new name is visible in
+  {meth}`Command.to_info_dict` output. Parameters that overwrite each other's
+  value trigger a warning: an argument sharing its name with another
+  parameter, or any parameter claiming the reserved name. Options may still
+  share a name to compete for the same value (feature switches).
+  {issue}`2819` {pr}`3678`
+- `unstyle` and the ANSI handling behind help-text wrapping now strip the full
+  CSI escape-sequence grammar.
 
 ## Version 8.4.2
 
-Unreleased
+Released 2026-06-24
 
 - Fix Fish shell completion broken in `8.4.0` by {pr}`3126`. Newlines and
   tabs in option help text are now escaped, keeping the original completion
@@ -27,6 +48,14 @@ Unreleased
   stream when no external pager runs, completing the partial
   `I/O operation on closed file` fix from {pr}`3482`. {issue}`3449`
   {pr}`3533`
+- Fix CLI usage symopsis for optional arguments producing double square brackets
+  `[[a|b|c]]...` whose type already brackets their metavar. {pr}`3578`
+- {func}`version_option` resolves a `package_name` that does not match an
+  installed distribution as an import (top-level module) name via
+  {func}`importlib.metadata.packages_distributions`. Packages whose
+  top-level module name differs from their distribution name (`PIL` vs
+  `Pillow`, `jwt` vs `PyJWT`) no longer raise `RuntimeError` out of the
+  box. {issue}`2331` {issue}`1884` {issue}`3125` {pr}`3582`
 
 ## Version 8.4.1
 
