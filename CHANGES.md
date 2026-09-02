@@ -1,6 +1,10 @@
-## Version 8.5.0
+## Version 8.5.1
 
 Unreleased
+
+## Version 8.5.0
+
+Released 2026-08-24
 
 - Add built-in shell completion support for PowerShell (Windows PowerShell
   5.1+ and pwsh 7+) alongside the existing `bash`, `zsh`, and `fish`
@@ -65,6 +69,32 @@ Unreleased
   strings to integers), defaulting to `Any`. {pr}`3407`
 - {meth}`Command.get_help_option_names` returns the help option names in the
   order they were declared. {pr}`3728`
+- {func}`get_pager_file` yields a text stream on Windows again. The temporary
+  file backend opened its file in binary mode, so writing a `str` to the pager
+  raised `TypeError: a bytes-like object is required, not 'str'`, and the
+  `color` argument was ignored on that path. Regression introduced in `8.4.0`
+  by {pr}`1572`. {issue}`3731` {issue}`3732` {issue}`3740` {pr}`3739`
+- {func}`progressbar` settles on its final position when `update_min_steps`
+  does not divide the total. Steps below that threshold are applied when the
+  bar finishes, so `show_pos` renders `20/20` rather than the last multiple
+  it reached. {issue}`3571` {pr}`3769`
+- An error raised while writing to the pager no longer gets replaced by
+  `PermissionError: [WinError 32]` on Windows. The temporary file backend
+  unlinked its file without closing it first, and Windows refuses to remove a
+  file the process still holds open, so the cleanup failure masked the real
+  exception. {issue}`3731` {pr}`3764`
+- The temporary file the pager writes to on Windows is opened with the encoding
+  {func}`get_pager_file` picked for the output stream, and with
+  `errors="replace"` to match the pipe backend. Any text stdout can encode
+  reaches the pager.
+- The temporary file pager backend forwards any parameters the user set in
+  `PAGER` to the pager command instead of silently dropping them. On Windows,
+  `PAGER="less -R"` now invokes `less -R` on the temporary file rather than
+  bare `less`. {pr}`3777`
+- Improve raw mode detection by parsing the option tokens. {issue}`3416`
+  {pr}`3777`
+- {func}`edit` accepts `os.PathLike` values for `filename`, in addition to
+  strings. {issue}`2869` {pr}`3781`
 
 ## Version 8.4.2
 
