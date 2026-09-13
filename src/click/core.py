@@ -99,6 +99,11 @@ def _check_nested_chain(
     raise RuntimeError(message)
 
 
+def _echo_aborted() -> None:
+    """Write the final abort message to standard error."""
+    echo(_("Aborted!"), file=sys.stderr)
+
+
 def _format_deprecated_label(deprecated: bool | str) -> str:
     """Return the parenthesized deprecation label shown in help text."""
     label = _("deprecated").upper()
@@ -1546,6 +1551,15 @@ class Command:
         # Process shell completion requests and exit early.
         self._main_shell_completion(extra, prog_name, complete_var)
 
+        # Every handler below takes the same two steps: propagate when
+        # standalone mode is disabled, otherwise collect the message and the
+        # exit code, and leave both to the teardown after the ``try``. The
+        # teardown writes the message and exits, and the outermost handler
+        # holds one policy for every interrupt arriving that late: the
+        # message may be lost, the intended exit code still wins.
+        report: cabc.Callable[[], None] | None = None
+        exit_code = 1
+
         try:
             try:
                 with self.make_context(prog_name, args, **extra) as ctx:
@@ -1560,39 +1574,53 @@ class Command:
                     # even always obvious that `rv` indicates success/failure
                     # by its truthiness/falsiness
                     ctx.exit()
+            except Exit as e:
+                if not standalone_mode:
+                    # in non-standalone mode, return the exit code
+                    # note that this is only reached if `self.invoke` above raises
+                    # an Exit explicitly -- thus bypassing the check there which
+                    # would return its result
+                    # the results of non-standalone execution may therefore be
+                    # somewhat ambiguous: if there are codepaths which lead to
+                    # `ctx.exit(1)` and to `return 1`, the caller won't be able to
+                    # tell the difference between the two
+                    return e.exit_code
+
+                exit_code = e.exit_code
+            except Abort:
+                if not standalone_mode:
+                    raise
+
+                report = _echo_aborted
             except (EOFError, KeyboardInterrupt) as e:
+                # The blank line closes the terminal's ``^C`` echo.
                 echo(file=sys.stderr)
-                raise Abort() from e
+
+                if not standalone_mode:
+                    raise Abort() from e
+
+                report = _echo_aborted
             except ClickException as e:
                 if not standalone_mode:
                     raise
-                e.show()
-                sys.exit(e.exit_code)
+
+                report, exit_code = e.show, e.exit_code
             except OSError as e:
-                if e.errno == errno.EPIPE:
-                    sys.stdout = t.cast(t.TextIO, _PacifyFlushWrapper(sys.stdout))
-                    sys.stderr = t.cast(t.TextIO, _PacifyFlushWrapper(sys.stderr))
-                    sys.exit(1)
-                else:
+                if e.errno != errno.EPIPE:
                     raise
-        except Exit as e:
-            if standalone_mode:
-                sys.exit(e.exit_code)
-            else:
-                # in non-standalone mode, return the exit code
-                # note that this is only reached if `self.invoke` above raises
-                # an Exit explicitly -- thus bypassing the check there which
-                # would return its result
-                # the results of non-standalone execution may therefore be
-                # somewhat ambiguous: if there are codepaths which lead to
-                # `ctx.exit(1)` and to `return 1`, the caller won't be able to
-                # tell the difference between the two
-                return e.exit_code
-        except Abort:
+
+                sys.stdout = t.cast(t.TextIO, _PacifyFlushWrapper(sys.stdout))
+                sys.stderr = t.cast(t.TextIO, _PacifyFlushWrapper(sys.stderr))
+
+            if report is not None:
+                report()
+
+            sys.exit(exit_code)
+        except (EOFError, KeyboardInterrupt):
             if not standalone_mode:
                 raise
-            echo(_("Aborted!"), file=sys.stderr)
-            sys.exit(1)
+
+            sys.exit(exit_code)
 
     def _main_shell_completion(
         self,
@@ -3335,10 +3363,15 @@ class Option(Parameter):
                 nargs=self.nargs,
             )
 
-    def get_help_record(self, ctx: Context) -> tuple[str, str] | None:
-        if self.hidden:
-            return None
+    def get_help_spec(self, ctx: Context) -> str:
+        """Returns the left column of the option's help record: its spellings
+        and metavar, like ``-v, --verbose`` or ``-c, --config TEXT``.
 
+        Unlike :meth:`get_help_record`, the spec is produced even when the
+        option is :attr:`hidden`.
+
+        .. versionadded:: 8.5.1
+        """
         any_prefix_is_slash = False
 
         def _write_opts(opts: cabc.Sequence[str]) -> str:
@@ -3359,6 +3392,12 @@ class Option(Parameter):
         if self.secondary_opts:
             rv.append(_write_opts(self.secondary_opts))
 
+        return ("; " if any_prefix_is_slash else " / ").join(rv)
+
+    def get_help_record(self, ctx: Context) -> tuple[str, str] | None:
+        if self.hidden:
+            return None
+
         help = self.help or ""
 
         extra = self.get_help_extra(ctx)
@@ -3378,7 +3417,7 @@ class Option(Parameter):
             extra_str = "; ".join(extra_items)
             help = f"{help}  [{extra_str}]" if help else f"[{extra_str}]"
 
-        return ("; " if any_prefix_is_slash else " / ").join(rv), help
+        return self.get_help_spec(ctx), help
 
     def get_help_extra(self, ctx: Context) -> types.OptionHelpExtra:
         extra: types.OptionHelpExtra = {}
